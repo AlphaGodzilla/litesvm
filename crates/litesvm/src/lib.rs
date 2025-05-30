@@ -631,6 +631,7 @@ impl LiteSVM {
         match maybe_program_indices {
             Ok(program_indices) => {
                 let mut context = self.create_transaction_context(compute_budget, accounts);
+                let mut times = ExecuteTimings::default();
                 let mut tx_result = MessageProcessor::process_message(
                     tx.message(),
                     &program_indices,
@@ -648,7 +649,7 @@ impl LiteSVM {
                         Some(log_collector),
                         compute_budget,
                     ),
-                    &mut ExecuteTimings::default(),
+                    &mut times,
                     &mut accumulated_consume_units,
                 )
                 .map(|_| ());
@@ -657,6 +658,10 @@ impl LiteSVM {
                     tx_result = Err(err);
                 };
 
+                // 重新声明变量accumulated_consume_units
+                let accumulated_consume_units = times.details.per_program_timings
+                    .iter()
+                    .fold(0, |acc: u64, (_, program_timing)| acc + program_timing.accumulated_units + program_timing.total_errored_units);
                 (
                     tx_result,
                     accumulated_consume_units,
